@@ -1,0 +1,9 @@
+.env
+
+/models/
+/data/
+__*__
+
+/wandb/
+tmp*
+*.png
