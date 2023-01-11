@@ -1,18 +1,20 @@
 python src/run_semantic_seg.py \
-    --model_name_or_path nvidia/mit-b3 \
-    --output_dir models/overfit_weightned_5_moresamples \
+    --model_name_or_path nvidia/mit-b5 \
+    --output_dir models/mit_b5_bs8 \
+    --image_size 640 \
     --remove_unused_columns False \
     --do_train \
     --do_eval \
-    --evaluation_strategy steps \
     --max_steps 10000 \
     --learning_rate 6e-5 \
+    --eval_delay 6 \
     --lr_scheduler_type constant \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
     --evaluation_strategy epoch \
     --save_strategy epoch \
     --seed 1337 \
-    --max_train_samples 64 \
     --save_total_limit 2 \
-    --gradient_accumulation_steps 4
+    --gradient_accumulation_steps 8 \
+    --metric_for_best_model eval_mean_iou \
+    --load_best_model_at_end True
