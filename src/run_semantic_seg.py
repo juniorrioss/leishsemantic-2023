@@ -226,6 +226,10 @@ class DataTrainingArguments:
         },
     )
 
+    image_size: Optional[int] = field(
+        default=512, metadata={"help": ("Image size to resize/crop for segmentation")}
+    )
+
     def __post_init__(self):
         if self.dataset_name is None and (
             self.train_dir is None and self.validation_dir is None
@@ -460,13 +464,14 @@ def main():
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        ignore_mismatched_sizes=True,
     )
     feature_extractor = AutoFeatureExtractor.from_pretrained(
         model_args.feature_extractor_name or model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
-        size={"height": 1024, "width": 1024},
+        size={"height": data_args.image_size, "width": data_args.image_size},
     )
 
     # Define torchvision transforms to be applied to each image + target.
@@ -560,7 +565,7 @@ def main():
         dataset["validation"].set_transform(preprocess_val)
 
     # ---------------------------TEST---------------------
-    dataset["validation"] = dataset["train"]
+    # dataset["validation"] = dataset["train"]
     # ---------------------------TEST---------------------
 
     # Initalize our trainer
