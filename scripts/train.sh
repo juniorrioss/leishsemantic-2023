@@ -1,13 +1,14 @@
 python src/run_semantic_seg.py \
     --model_name_or_path nvidia/mit-b5 \
-    --output_dir models/mit_b5_bs8 \
-    --image_size 640 \
+    --output_dir models/segformer-b5-nfold-0-1024-weights-7-lr5e5 \
+    --image_size 1024 \
+    --leishmania_weights 7 \
+    --n_fold 10 \
     --remove_unused_columns False \
     --do_train \
     --do_eval \
-    --max_steps 10000 \
-    --learning_rate 6e-5 \
-    --eval_delay 6 \
+    --max_steps 2000 \
+    --learning_rate 5e-5 \
     --lr_scheduler_type constant \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
@@ -15,6 +16,7 @@ python src/run_semantic_seg.py \
     --save_strategy epoch \
     --seed 1337 \
     --save_total_limit 2 \
-    --gradient_accumulation_steps 8 \
+    --gradient_accumulation_steps 1 \
     --metric_for_best_model eval_mean_iou \
-    --load_best_model_at_end True
+    --load_best_model_at_end True \
+    --report_to wandb

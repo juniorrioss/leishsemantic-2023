@@ -47,6 +47,7 @@ from transformers.utils.versions import require_version
 from dotenv import load_dotenv
 
 from custom_segformer import SegFormerWeightnedLoss
+from sklearn.model_selection import KFold
 
 """ Finetuning any 🤗 Transformers model supported by AutoModelForSemanticSegmentation for semantic segmentation leveraging the Trainer API."""
 
@@ -230,6 +231,14 @@ class DataTrainingArguments:
         default=512, metadata={"help": ("Image size to resize/crop for segmentation")}
     )
 
+    n_fold: Optional[int] = field(
+        default=0, metadata={"help": ("Folder number 0 to 4")}
+    )
+
+    leishmania_weights: Optional[int] = field(
+        default=5, metadata={"help": "Leishmania Weights"}
+    )
+
     def __post_init__(self):
         if self.dataset_name is None and (
             self.train_dir is None and self.validation_dir is None
@@ -370,8 +379,21 @@ def main():
     # step 1: create Dataset objects
     train_dataset = create_dataset(image_paths_train, label_paths_train)
 
-    # step 2: create DatasetDict
-    dataset = train_dataset.train_test_split(test_size=0.2, seed=32)
+    dataset = train_dataset.train_test_split(test_size=0.1, seed=42)
+
+    folds = KFold(5, shuffle=True, random_state=42)
+    splits = folds.split(dataset["train"])
+
+    print(f'\n[ INFO ] SELECTING THE {data_args.n_fold}')
+    train_idxs, val_idxs = list(splits)[data_args.n_fold]
+
+    dataset = DatasetDict(
+        {
+            "train": dataset["train"].select(train_idxs),
+            "validation": dataset["train"].select(val_idxs),
+            "test": dataset["test"],
+        }
+    )
 
     # Rename column names to standardized names (only "image" and "label" need to be present)
     if "pixel_values" in dataset["train"].column_names:
@@ -379,27 +401,6 @@ def main():
     if "annotation" in dataset["train"].column_names:
         dataset = dataset.rename_columns({"annotation": "label"})
 
-    # If we don't have a validation split, split off a percentage of train as validation.
-    data_args.train_val_split = (
-        None if "validation" in dataset.keys() else data_args.train_val_split
-    )
-    if isinstance(data_args.train_val_split, float) and data_args.train_val_split > 0.0:
-        split = dataset["train"].train_test_split(data_args.train_val_split)
-        dataset["train"] = split["train"]
-        dataset["validation"] = split["test"]
-
-    # Prepare label mappings.
-    # We'll include these in the model's config to get human readable labels in the Inference API.
-    if data_args.dataset_name == "scene_parse_150":
-        repo_id = "huggingface/label-files"
-        filename = "ade20k-id2label.json"
-    else:
-        repo_id = data_args.dataset_name
-        filename = "id2label.json"
-    # id2label = json.load(
-    #     open(hf_hub_download(repo_id, filename, repo_type="dataset"), "r")
-    # )
-    # label2id = {v: str(k) for k, v in id2label.items()}
     label2id = {
         "fundo": 0,
         "leishmania": 1,
@@ -455,6 +456,10 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    config.loss_weights = [1, data_args.leishmania_weights, 1, 1]
+
+    
     # AutoModelForSemanticSegmentation
     # SegFormerWeightnedLoss
     model = SegFormerWeightnedLoss.from_pretrained(
@@ -485,11 +490,11 @@ def main():
         )
     else:
         size = (feature_extractor.size["height"], feature_extractor.size["width"])
+
     train_transforms = Compose(
         [
             ReduceLabels() if data_args.reduce_labels else Identity(),
             RandomCrop(size=size),
-            # Resize(size=size),
             RandomHorizontalFlip(flip_prob=0.5),
             PILToTensor(),
             ConvertImageDtype(torch.float),

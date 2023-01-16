@@ -8,10 +8,16 @@ from losses import TverskyLoss, FocalLoss
 
 
 class SegFormerWeightnedLoss(SegformerForSemanticSegmentation):
-    def __init__(self, config, loss_weight=[1, 5, 1, 1]):
+    def __init__(self, config):
         super().__init__(config)
 
+        loss_weight = (
+            self.config.loss_weights if self.config.loss_weights else [1, 5, 1, 1]
+        )
+
         self.loss_weight = [i / sum(loss_weight) for i in loss_weight]
+
+        print("[ INFO ] LOSS WEIGHT SET TO: ", self.loss_weight)
 
     def forward(
         self,
